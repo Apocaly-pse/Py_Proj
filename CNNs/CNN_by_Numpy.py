@@ -1,4 +1,5 @@
-import gzip, pickle
+import gzip
+import pickle
 import numpy as np
 
 """
@@ -101,12 +102,12 @@ class MaxPool2:
         d_L_d_input = np.zeros(self.last_input.shape)
 
         for im_region, i, j in self.iterate_regions(self.last_input):
-            height, weight, f_num = im_region.shape
+            height, width, f_num = im_region.shape
             # 找到im_region中的最大值
             # amax为8元列表(由于axis参数取值为0,1，最后剩下的最大值个数是8)
             amax = np.amax(im_region, axis=(0, 1))
             for h in range(height):
-                for w in range(weight):
+                for w in range(width):
                     for f in range(f_num):
                         # 如果该像素点为最大值，将梯度赋值给它
                         if im_region[h, w, f] == amax[f]:
@@ -145,7 +146,7 @@ class Softmax:
         self.last_input = input
 
         input_len, nodes = self.weights.shape
-
+        # print(self.weights.shape);exit()
         totals = input @ self.weights + self.biases
 
         # output before softmax
@@ -206,9 +207,8 @@ class Softmax:
 
 
 # 数据加载部分
-f = gzip.open('mnist.pkl.gz', 'rb')
-training, validation, test = pickle.load(f, encoding='latin1')
-f.close()
+with gzip.open('mnist.pkl.gz', 'rb') as f:
+    training, validation, test = pickle.load(f, encoding='latin1')
 
 # 训练数据(total:60000)
 train_images = training[0][:1000]
@@ -228,13 +228,13 @@ def forward(image, label):
     Completes a forward pass of the CNN and calculates the accuracy and
     cross-entropy loss.
     '''
-    # 传入数据
+    # 传入训练数据
     # 原始数据是(784, 1)格式的图片，像素值在[0, 1]，需要进行转换
-    out1 = conv.forward(image.reshape(28, 28) - 0.5)
+    out1 = conv.forward(image - 0.5)
     out2 = pool.forward(out1)
     out3 = softmax.forward(out2)
 
-    # Calculate cross-entropy loss and accuracy. np.log() is the natural log.
+    # 计算交叉熵损失和精度.
     loss = -np.log(out3[label])
     acc = 1 if np.argmax(out3) == label else 0
 
@@ -252,7 +252,7 @@ def train(im, label, lr=.005):
     gradient = np.zeros(10)
     gradient[label] = -1 / out[label]
 
-    # 损失梯度的反向传播
+    # 计算损失梯度，并反向传播
     gradient1 = softmax.backprop(gradient, lr)
     gradient2 = pool.backprop(gradient1)
     gradient3 = conv.backprop(gradient2, lr)
@@ -263,17 +263,16 @@ def train(im, label, lr=.005):
 print('MNIST CNN initialized!')
 
 
-# 开始训练CNN，epoch: 迭代期
-for epoch in range(5):
+# 开始训练CNN
+# epoch: 迭代期
+for epoch in range(3):
     print('--- Epoch %d ---' % (epoch + 1))
-
     # 打乱（shuffle）训练数据
     # 使用np.random.permutation()函数进行随机排列处理
     shuffle = np.random.permutation(len(train_images))
     train_images = train_images[shuffle]
     train_labels = train_labels[shuffle]
 
-    # Train
     loss = 0
     num_correct = 0
     # i: index
@@ -288,7 +287,7 @@ for epoch in range(5):
             loss = 0
             num_correct = 0
 
-        loss1, acc = train(im, label)
+        loss1, acc = train(im.reshape(28, 28), label)
         loss += loss1
         num_correct += acc
 
@@ -298,7 +297,7 @@ print('\n--- Testing the CNN ---')
 loss = 0
 num_correct = 0
 for im, label in zip(test_images, test_labels):
-    _, l, acc = forward(im, label)
+    _, l, acc = forward(im.reshape(28, 28), label)
     loss += l
     num_correct += acc
 

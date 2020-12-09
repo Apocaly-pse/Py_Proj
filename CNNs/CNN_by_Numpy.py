@@ -146,7 +146,6 @@ class Softmax:
         self.last_input = input
 
         input_len, nodes = self.weights.shape
-        # print(self.weights.shape);exit()
         totals = input @ self.weights + self.biases
 
         # output before softmax
@@ -257,7 +256,7 @@ def train(im, label, lr=.005):
     gradient2 = pool.backprop(gradient1)
     gradient3 = conv.backprop(gradient2, lr)
 
-    return loss, acc
+    return gradient3, loss, acc
 
 
 print('MNIST CNN initialized!')
@@ -287,7 +286,7 @@ for epoch in range(3):
             loss = 0
             num_correct = 0
 
-        loss1, acc = train(im.reshape(28, 28), label)
+        _, loss1, acc = train(im.reshape(28, 28), label)
         loss += loss1
         num_correct += acc
 

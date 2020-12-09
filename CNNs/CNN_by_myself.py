@@ -43,7 +43,8 @@ class Conv:
         for iter_img, i, j in self.iterate_imgs(input):
             # 这里在1,2方向上进行求和，由于0方向是num_kernels
             output[i, j] = np.sum(iter_img * self.kernels, axis=(1, 2))
-            return output
+
+        return output
 
     def backprop(self, nabla_out, lr):
         # 更新卷积核（本质是权重）
@@ -67,9 +68,10 @@ class MaxPool:
     # 最大值池化层类（池化大小：2*2）
 
     def iterate_imgs(self, image):
-        # 与卷积层类似，先生成用于池化操作的小图像矩阵
+        # 与卷积层类似，首先生成用于池化操作的小图像矩阵
         height, width, _ = image.shape
-        new_height, new_width = height // 2, width // 2
+        new_height = height // 2
+        new_width = width // 2
 
         for i in range(new_height):
             for j in range(new_width):
@@ -133,6 +135,7 @@ class Softmax:
         # 将输入（图像矩阵）展平为13*13*8=1352维向量
         input = input.flatten()
         self.last_input = input
+
         # weights形状：1352*10，10为待识别输出的节点数
         input_dim, nodes = self.weights.shape
         # 计算带权输出total
@@ -141,8 +144,7 @@ class Softmax:
 
         exp_total = np.exp(total)
         # 计算Softmax激活值并返回
-        softmax_val = exp_total / np.sum(exp_total, axis=0)
-        return softmax_val
+        return exp_total / np.sum(exp_total, axis=0)
 
     def backprop(self, nabla_out, lr):
         # 首先对Softmax层(输出层,全连接层)进行反向传播
@@ -170,19 +172,17 @@ class Softmax:
             # 根据链式法则可得
             # (10, ) * (10, ) -> (10, )
             nabla_t = gradient * out_t
-            # 用np.newaxis（None）扩展数组为二维
+            # 用np.newaxis（或None）扩展数组为二维
             # 并进行转置操作后进行矩阵乘法运算
-            # nabla_w = nabla_t * t_w
             # (1352, 1) @ (1, 10) -> (1352, 10)
             nabla_w = t_w[np.newaxis].T @ nabla_t[np.newaxis]
-            # nabla_b = nabla_t * t_b
             # (10, ) * 1 -> (10, )
             nabla_b = nabla_t * t_b
 
             # (1352, 10) @ (10, ) -> (1352, )
             nabla_inputs = t_inputs @ nabla_t
 
-            # 使用计算出来的nabla_W和nabla_b更新权重和偏置
+            # 使用计算出来的nabla_w和nabla_b更新权重和偏置
             self.weights -= lr * nabla_w
             self.biases -= lr * nabla_b
 
@@ -266,18 +266,17 @@ for epoch in range(3):
             num_correct = 0
 
         # 由于输入图片形状是(784,1)，需要转换为28x28
-        _, ell, accuracy = Train(img.reshape(28, 28), label)
-        loss += ell
+        _, loss_, accuracy = Train(img.reshape(28, 28), label)
+        loss += loss_
         num_correct += accuracy
-print("训练完成")
 
 
 print("开始测试模型")
 loss = 0
 num_correct = 0
 for img, label in zip(test_images, test_labels):
-    _, ell, accuracy = Forward(img.reshape(28, 28), label)
-    loss += ell
+    _, loss_, accuracy = Forward(img.reshape(28, 28), label)
+    loss += loss_
     num_correct += accuracy
 
 num_tests = len(test_images)

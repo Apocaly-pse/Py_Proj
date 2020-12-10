@@ -4,7 +4,7 @@ import numpy as np
 
 """
 使用Numpy数组处理库实现卷积神经网络识别手写数字(MNIST)
-使用三个类(Conv、Maxpool、Softmax)进行前项和反向传播
+使用三个类(Conv、Maxpool、Softmax)进行前向和反向传播
 参考：https://zhuanlan.zhihu.com/p/102119808
 """
 

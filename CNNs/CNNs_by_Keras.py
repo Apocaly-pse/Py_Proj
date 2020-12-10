@@ -5,16 +5,16 @@ from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
 from keras.utils import to_categorical
 from keras.optimizers import SGD
 
-train_images = mnist.train_images()
-train_labels = mnist.train_labels()
-test_images = mnist.test_images()
-test_labels = mnist.test_labels()
+train_images = mnist.train_images()[:1000]
+train_labels = mnist.train_labels()[:1000]
+test_images = mnist.test_images()[:1000]
+test_labels = mnist.test_labels()[:1000]
 
 train_images = (train_images / 255) - 0.5
 test_images = (test_images / 255) - 0.5
 
-train_images = np.expand_dims(train_images, axis=3)
-test_images = np.expand_dims(test_images, axis=3)
+train_images = np.expand_dims(train_images, axis=-1)
+test_images = np.expand_dims(test_images, axis=-1)
 
 model = Sequential([
     Conv2D(8, 3, input_shape=(28, 28, 1), use_bias=False),
@@ -32,8 +32,8 @@ model.compile(
 
 
 model.fit(
-    train_images,
-    to_categorical(train_labels),
+    train_images, to_categorical(train_labels),
+    shuffle=True,
     batch_size=1,
     epochs=3,
     verbose=1,

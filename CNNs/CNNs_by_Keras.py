@@ -1,17 +1,24 @@
 import numpy as np
-import mnist
+import gzip
+import pickle
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
 from keras.utils import to_categorical
 from keras.optimizers import SGD
 
-train_images = mnist.train_images()[:1000]
-train_labels = mnist.train_labels()[:1000]
-test_images = mnist.test_images()[:1000]
-test_labels = mnist.test_labels()[:1000]
+# 导入数据（image及label）
+with gzip.open('mnist.pkl.gz', 'rb') as f:
+    training, validation, test = pickle.load(f, encoding='latin1')
 
-train_images = (train_images / 255) - 0.5
-test_images = (test_images / 255) - 0.5
+# 训练数据(total:50000)
+train_images = np.array([img.reshape(28, 28) for img in training[0][:10000]])
+train_labels = training[1][:10000]
+# 测试数据(total:10000)
+test_images = np.array([img.reshape(28, 28) for img in test[0][:1000]])
+test_labels = test[1][:1000]
+
+train_images = train_images - 0.5
+test_images = test_images - 0.5
 
 train_images = np.expand_dims(train_images, axis=-1)
 test_images = np.expand_dims(test_images, axis=-1)
@@ -22,6 +29,8 @@ model = Sequential([
     Flatten(),
     Dense(10, activation='softmax'),
 ])
+
+print("开始训练模型")
 
 # 编译模型，使用随机梯度下降算法（SGD,学习率为.005）
 model.compile(
@@ -35,7 +44,7 @@ model.fit(
     train_images, to_categorical(train_labels),
     shuffle=True,
     batch_size=1,
-    epochs=3,
+    epochs=1,
     verbose=1,
     validation_data=(test_images, to_categorical(test_labels)),
 )

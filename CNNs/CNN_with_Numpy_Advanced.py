@@ -198,7 +198,6 @@ class Softmax(object):
 def train(train_images, train_labels, ksize=3, batch_size=5, lr=.005):
     # 训练
     conv = Conv(kernel_shape=(ksize, ksize, 1, 8))  # 26x26x8
-    relu = Relu()
     pool = Pool()                         # 13x13x8
     pool_size = (28 - ksize + 1) // 2
     nn = Linear(pool_size * pool_size * 8, 10)
@@ -210,7 +209,6 @@ def train(train_images, train_labels, ksize=3, batch_size=5, lr=.005):
             Y = train_labels[i:i + batch_size]
 
             predict = conv.forward(X)  # 10,13,13,8
-            predict = relu.forward(predict)
             predict = pool.forward(predict)  # 10,13,13,8
             predict = nn.forward(predict.reshape(batch_size, -1))
 
@@ -219,11 +217,11 @@ def train(train_images, train_labels, ksize=3, batch_size=5, lr=.005):
             delta = nn.backward(delta, lr)
             delta = delta.reshape(batch_size, pool_size, pool_size, 8)
             delta = pool.backward(delta)
-            delta = relu.backward(delta)
             conv.backward(delta, lr)
 
-            print("Epoch-{}-{:05d}".format(str(epoch), i + batch_size),
+            print("Epoch-{}-{:05d}".format(str(epoch + 1), i + batch_size),
                   ":", "loss:{:.4f}".format(loss))
+        lr *= .95**(epoch + 1)
 
         np.savez("data2.npz", k=conv.k, b=conv.b, W=nn.W, nb=nn.b)
 
@@ -232,7 +230,6 @@ def eval(test_images, test_labels, ksize=3, batch_size=5):
     r = np.load("data2.npz")
 
     conv = Conv(kernel_shape=(ksize, ksize, 1, 8))  # 26x26x8
-    relu = Relu()
     pool = Pool()  # 13x13x8
     pool_size = (28 - ksize + 1) // 2
     nn = Linear(pool_size * pool_size * 8, 10)
@@ -250,7 +247,6 @@ def eval(test_images, test_labels, ksize=3, batch_size=5):
         Y = test_labels[i]
 
         predict = conv.forward(X)
-        predict = relu.forward(predict)
         predict = pool.forward(predict)
         predict = nn.forward(predict.reshape(1, -1))
 
@@ -268,7 +264,7 @@ if __name__ == '__main__':
         training, validation, test = pickle.load(f, encoding='latin1')
 
     # 训练数据(total:50000)
-    tr = 10000
+    tr = 3000
     shuffle1 = np.random.permutation(tr)
     train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
     # 标签one-hot处理 (60000, 10)

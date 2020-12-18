@@ -2,6 +2,7 @@ import gzip
 import pickle
 import numpy as np
 
+
 """
 使用Numpy数组处理库实现卷积神经网络识别手写数字(MNIST)
 使用三个类(Conv、Maxpool、Softmax)进行前向和反向传播
@@ -12,14 +13,14 @@ import numpy as np
 class Conv:
     # 实现卷积层类（卷积核大小：shape）
 
-    def __init__(self, shape, num_kernels):
+    def __init__(self, shape, kernel_num):
         # 设定卷积核个数
-        self.num_kernels = num_kernels
+        self.kernel_num = kernel_num
         self.kernel_size = shape
 
         # 使用随机数函数初始化卷积核（相当于全连接的权重）
         # 除以9使得权重不会过大而导致学习效率降低
-        self.kernels = np.random.randn(num_kernels, shape, shape) / shape ** 2
+        self.kernels = np.random.randn(kernel_num, shape, shape) / shape ** 2
 
     def iterate_imgs(self, image):
         # 用于生成与卷积核作用的小图像矩阵
@@ -27,7 +28,8 @@ class Conv:
 
         for i in range(height - self.kernel_size + 1):
             for j in range(width - self.kernel_size + 1):
-                iter_img = image[i:(i + self.kernel_size), j:(j + self.kernel_size)]
+                iter_img = image[i:(i + self.kernel_size),
+                                 j:(j + self.kernel_size)]
                 # 返回含有位置信息（左上角位置）和矩阵的生成器
                 yield iter_img, i, j
 
@@ -38,11 +40,12 @@ class Conv:
         self.last_input = input
         height, width = input.shape
 
-        output = np.zeros((height - self.kernel_size + 1, width - self.kernel_size + 1, self.num_kernels))
+        output = np.zeros((height - self.kernel_size + 1,
+                           width - self.kernel_size + 1, self.kernel_num))
 
         # 进行离散卷积操作（使用点乘）
         for iter_img, i, j in self.iterate_imgs(input):
-            # 这里在1,2方向上进行求和，由于0方向是num_kernels
+            # 这里在1,2方向上进行求和，由于0方向是kernel_num
             output[i, j] = np.sum(iter_img * self.kernels, axis=(1, 2))
 
         return output
@@ -54,7 +57,7 @@ class Conv:
         # 遍历前面生成的小图像矩阵及索引
         for iter_img, i, j in self.iterate_imgs(self.last_input):
             # 逐个计算，一次更新一个卷积核
-            for n in range(self.num_kernels):
+            for n in range(self.kernel_num):
                 # 对小图像矩阵求和(遍历ij)即可得到最后的梯度值
                 nabla_kernels[n] += nabla_out[i, j, n] * iter_img
 
@@ -66,10 +69,10 @@ class Conv:
 
 
 class MaxPool:
-    # 最大值池化层类（池化大小：2*2）
+    # 最大值池化层类（池化大小：pool_size）
 
-    def __init__(self, size):
-        self.pool_size = size
+    def __init__(self, pool_size):
+        self.pool_size = pool_size
 
     def iterate_imgs(self, image):
         # 与卷积层类似，首先生成用于池化操作的小图像矩阵
@@ -79,7 +82,10 @@ class MaxPool:
 
         for i in range(new_height):
             for j in range(new_width):
-                iter_img = image[(i * self.pool_size):(i * self.pool_size + self.pool_size), (j * self.pool_size):(j * self.pool_size + self.pool_size)]
+                iter_img = image[
+                    (i * self.pool_size):(i * self.pool_size + self.pool_size),
+                    (j * self.pool_size):(j * self.pool_size + self.pool_size)
+                ]
                 # 返回小图像矩阵及位置的生成器
                 yield iter_img, i, j
 
@@ -88,9 +94,10 @@ class MaxPool:
 
         self.last_input = input
         # 此时的输入来自卷积层的输出
-        height, width, num_kernels = input.shape
+        height, width, kernel_num = input.shape
         # 先初始化输出矩阵
-        output = np.zeros((height // self.pool_size, width // self.pool_size, num_kernels))
+        output = np.zeros((height // self.pool_size, width //
+                           self.pool_size, kernel_num))
 
         # 开始计算最大值，使用`amax()`函数
         for iter_img, i, j in self.iterate_imgs(input):
@@ -106,18 +113,31 @@ class MaxPool:
 
         # 遍历前面生成的小图像矩阵及索引，找到最大值并赋值梯度
         for iter_img, i, j in self.iterate_imgs(self.last_input):
-            height, width, num_kernels = iter_img.shape
+            height, width, kernel_num = iter_img.shape
             # 找到生成的小图像矩阵中元素的最大值
             # 参数axis设定为(0,1)使最大值个数为卷积核个数
             max_val = np.amax(iter_img, axis=(0, 1))
-            for h, w, n in zip(range(height), range(width), range(num_kernels)):
+            for h, w, n in zip(range(height), range(width), range(kernel_num)):
                 # 如果像素点为最大值，将梯度赋给它
                 if iter_img[h, w, n] == max_val[n]:
-                    # (h,w,n)为最大值的相对位置(13x13x8中)
-                    # (i+h,j+w,n)为最大值的绝对位置(26x26x8中)
+                    # (h,w,n)为最大值的相对位置(池化后所得特征图中的位置)
+                    # (i+h,j+w,n)为最大值的绝对位置(卷积操作后所得特征图中的位置)
                     nabla_input[i + h, j + w, n] = nabla_out[i, j, n]
             # 返回损失函数关于输入的梯度
             return nabla_input
+
+
+class FullConnect:
+    # 使用全连接层连接池化层与Softmax层
+
+    def __init__(self, ):
+        pass
+
+    def forward(self, ):
+        pass
+
+    def backprop(slef, ):
+        pass
 
 
 class Softmax:
@@ -134,7 +154,7 @@ class Softmax:
         # 进行前向传播，用Softmax函数计算激活值
         self.last_input_shape = input.shape
 
-        # 将输入（图像矩阵）展平为13*13*8=1352维向量
+        # 将输入（图像矩阵）展平
         input = input.flatten()
         self.last_input = input
 
@@ -162,7 +182,8 @@ class Softmax:
 
             # k!=c情形，先全部赋值给out_t,后再单独修改k==c情形的值
             out_t = -t_exp[i] * t_exp / (np.sum(t_exp) ** 2)
-            out_t[i] = t_exp[i] * (np.sum(t_exp) - t_exp[i]) / (np.sum(t_exp) ** 2)
+            out_t[i] = t_exp[i] * \
+                (np.sum(t_exp) - t_exp[i]) / (np.sum(t_exp) ** 2)
             # 计算输入的带权输出关于权重和偏置的偏导数
             t_w = self.last_input
             t_b = 1
@@ -194,30 +215,39 @@ class Softmax:
 def Forward(image, label):
     # 定义函数用于模型的前向传播过程，输出交叉熵损失函数值及精度
     # 原始数据是(784, 1)格式的图片，像素值为[0, 1]，需要进行转换
-    output1 = conv.forward(image - 0.5)
-    output2 = pool.forward(output1)
+    output = conv.forward(image - 0.5)
+    output = pool.forward(output)
     # 输出值output3为向量形式(10,1)的概率，最大概率即模型判定的数字
-    output3 = softmax.forward(output2)
+    output = softmax.forward(output)
 
     # 计算交叉熵损失及精度
-    loss = -np.log(output3[label])
+    loss = -np.log(output[label])
     # 正确返回1，否则为0
-    accuracy = 1 if np.argmax(output3) == label else 0
+    accuracy = 1 if np.argmax(output) == label else 0
 
-    return output3, loss, accuracy
+    return output, loss, accuracy
 
 
-def Train(image, label, lr=.05):
+def Train(image, label, lr=.005):
     # 首先进行前向传播，lr为学习率默认值
-    output, loss, accuracy = Forward(image, label)
+    output = conv.forward(image - 0.5)
+    output = pool.forward(output)
+    # 输出值output3为向量形式(10,1)的概率，最大概率即模型判定的数字
+    output = softmax.forward(output)
+
+    # 计算交叉熵损失及精度
+    loss = -np.log(output[label])
+    # 正确返回1，否则为0
+    accuracy = 1 if np.argmax(output) == label else 0
+    # output, loss, accuracy = Forward(image, label)
     # 计算初始梯度
     gradient = np.zeros(10)
     gradient[label] = -1 / output[label]
 
     # 计算损失梯度，并进行反向传播
-    gradient1 = softmax.backprop(gradient, lr)
-    gradient2 = pool.backprop(gradient1)
-    conv.backprop(gradient2, lr)
+    gradient = softmax.backprop(gradient, lr)
+    gradient = pool.backprop(gradient)
+    conv.backprop(gradient, lr)
 
     return loss, accuracy
 
@@ -227,15 +257,15 @@ with gzip.open('mnist.pkl.gz', 'rb') as f:
     training, validation, test = pickle.load(f, encoding='latin1')
 
 # 训练数据(total:50000)
-train_images = training[0][:10000]
-train_labels = training[1][:10000]
+train_images = training[0][:6000]
+train_labels = training[1][:6000]
 # 测试数据(total:10000)
 test_images = test[0][:1000]
 test_labels = test[1][:1000]
 
 # ----------模型调用-----------
 # 实例化三个层
-kernel_size = 4
+kernel_size = 3
 kernel_num = 8
 maxpool_size = 2
 softmax_nodes = (28 - kernel_size + 1) // maxpool_size
@@ -247,37 +277,32 @@ softmax = Softmax(pow(softmax_nodes, 2) * kernel_num, 10)
 
 print("开始训练模型")
 
-# 使用np.random.permutation函数打乱（shuffle）训练数据
-shuffle = np.random.permutation(len(train_images))
-train_images = train_images[shuffle]
-train_labels = train_labels[shuffle]
+# epoch: 迭代期
+for epoch in range(1):
+    print('--- Epoch %d ---' % (epoch + 1))
+    # 使用np.random.permutation()函数打乱（shuffle）训练数据
+    shuffle = np.random.permutation(len(train_images))
+    train_images = train_images[shuffle]
+    train_labels = train_labels[shuffle]
 
-# 初始化损失和正确识别个数
-loss = 0
-num_correct = 0
-batch_size = 10
+    loss = 0
+    num_correct = 0
 
-mini_batches = [train_images[k:k + batch_size] for k in range(0, len(train_images), batch_size)]
+    for i, (im, label) in enumerate(zip(train_images, train_labels)):
+        if i % 100 == 99:
+            print(
+                '[Step %d] Past 100 steps: \
+                Average Loss %.3f | Accuracy: %d%%' %
+                (i + 1, loss / 100, num_correct))
+            loss = 0
+            num_correct = 0
 
-
-for i, (img, label) in enumerate(zip(train_images, train_labels)):
-    # 每100次输出精确度和损失值
-    if i % 100 == 99:
-        print(
-            '[Step %d] 前100次平均损失: %.3f | Accuracy: %d%%' %
-            (i + 1, loss / 100, num_correct)
-            )
-        loss = 0
-        num_correct = 0
-
-    # 由于输入图片形状是(784,1)，需要转换为28x28
-    los, accuracy = Train(img.reshape(28, 28), label)
-    loss += los
-    num_correct += accuracy
+        loss1, acc = Train(im.reshape(28, 28), label)
+        loss += loss1
+        num_correct += acc
 
 
-print("开始测试模型")
-
+print("----开始测试模型----")
 loss = 0
 num_correct = 0
 for img, label in zip(test_images, test_labels):

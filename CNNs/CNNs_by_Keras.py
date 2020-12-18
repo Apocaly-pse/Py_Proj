@@ -11,8 +11,8 @@ with gzip.open('mnist.pkl.gz', 'rb') as f:
     training, validation, test = pickle.load(f, encoding='latin1')
 
 # 训练数据(total:50000)
-train_images = np.array([img.reshape(28, 28) for img in training[0][:10000]])
-train_labels = training[1][:10000]
+train_images = np.array([img.reshape(28, 28) for img in training[0][:6000]])
+train_labels = training[1][:6000]
 # 测试数据(total:10000)
 test_images = np.array([img.reshape(28, 28) for img in test[0][:1000]])
 test_labels = test[1][:1000]
@@ -43,7 +43,7 @@ model.compile(
 model.fit(
     train_images, to_categorical(train_labels),
     shuffle=True,
-    batch_size=1,
+    batch_size=10,
     epochs=1,
     verbose=1,
     validation_data=(test_images, to_categorical(test_labels)),

@@ -257,8 +257,8 @@ with gzip.open('mnist.pkl.gz', 'rb') as f:
     training, validation, test = pickle.load(f, encoding='latin1')
 
 # 训练数据(total:50000)
-train_images = training[0][:6000]
-train_labels = training[1][:6000]
+train_images = training[0][:2000]
+train_labels = training[1][:2000]
 # 测试数据(total:10000)
 test_images = test[0][:1000]
 test_labels = test[1][:1000]
@@ -291,8 +291,7 @@ for epoch in range(1):
     for i, (im, label) in enumerate(zip(train_images, train_labels)):
         if i % 100 == 99:
             print(
-                '[Step %d] Past 100 steps: \
-                Average Loss %.3f | Accuracy: %d%%' %
+                '[Step %d] 前100次平均损失: %.3f | 精度: %d%%' %
                 (i + 1, loss / 100, num_correct))
             loss = 0
             num_correct = 0
@@ -311,5 +310,5 @@ for img, label in zip(test_images, test_labels):
     num_correct += accuracy
 
 num_tests = len(test_images)
-print('Test Loss:', loss / num_tests)
-print('Test Accuracy:', num_correct / num_tests)
+print('损失:', loss / num_tests)
+print('精度:', num_correct / num_tests)

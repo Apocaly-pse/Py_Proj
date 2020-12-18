@@ -8,6 +8,7 @@ np.set_printoptions(threshold=np.inf)
 参考：https://www.cnblogs.com/qxcheng/p/11729773.html
 """
 
+
 # 独热编码转换
 def onehot(targets, num):
     result = np.zeros((num, 10))
@@ -28,33 +29,6 @@ def img2col(x, ksize, stride):
                                j * stride:j * stride + ksize, :].reshape(-1)
             num += 1
     return image_col
-
-
-# 全连接层
-class Linear(object):
-    def __init__(self, inChannel, outChannel):
-        scale = np.sqrt(inChannel / 2)
-        self.W = np.random.standard_normal((inChannel, outChannel)) / scale
-        self.b = np.random.standard_normal(outChannel) / scale
-        self.W_gradient = np.zeros((inChannel, outChannel))
-        self.b_gradient = np.zeros(outChannel)
-
-    def forward(self, x):
-        self.x = x
-        x_forward = np.dot(self.x, self.W) + self.b
-        return x_forward
-
-    def backward(self, delta, learning_rate):
-        # 梯度计算
-        batch_size = self.x.shape[0]
-        self.W_gradient = np.dot(self.x.T, delta) / batch_size  # bxin bxout
-        self.b_gradient = np.sum(delta, axis=0) / batch_size
-        delta_backward = np.dot(delta, self.W.T)                # bxout inxout
-        # 反向传播
-        self.W -= self.W_gradient * learning_rate
-        self.b -= self.b_gradient * learning_rate
-
-        return delta_backward
 
 
 # 卷积层
@@ -79,18 +53,18 @@ class Conv(object):
         bx, wx, hx, cx = self.x.shape   # 10,28,28,1
         wk, hk, ck, nk = self.k.shape             # kernel的宽、高、通道数、个数:5,5,1,6
         feature_w = (wx - wk) // self.stride + 1  # 特征图尺寸24
-        feature = np.zeros((bx, feature_w, feature_w, nk)) # 10,24,24,6
+        feature = np.zeros((bx, feature_w, feature_w, nk))  # 10,24,24,6
 
-        self.image_col = [] # 10,576,25，列表形式(采用append函数生成)
-        kernel = self.k.reshape(-1, nk) # (25, 6)
+        self.image_col = []  # 10,576,25，列表（一维向量）形式(采用append函数生成)
+        kernel = self.k.reshape(-1, nk)  # (25, 6)
         for i in range(bx):
-            image_col = img2col(self.x[i], wk, self.stride) # (24x24, 25)
+            image_col = img2col(self.x[i], wk, self.stride)  # (24x24, 25)
             # print(np.dot(image_col,kernel).shape);exit()
-            feature[i] = (np.dot(image_col, kernel) +
-                          self.b).reshape(feature_w, feature_w, nk) # 24，24，6
+            feature[i] = (np.dot(image_col, kernel) + self.b).reshape(
+                            feature_w, feature_w, nk)  # 24，24，6
             self.image_col.append(image_col)
         # print(np.array(self.image_col).shape);exit()
-        return feature # 10,24,24,6
+        return feature  # 10,24,24,6
 
     def backward(self, delta, learning_rate):
         bx, wx, hx, cx = self.x.shape  # batch,14,14,inchannel
@@ -130,17 +104,17 @@ class Conv(object):
 
         return delta_backward
 
+
 # pool
-
-
 class Pool(object):
     def forward(self, x):
-        b, w, h, c = x.shape
+        b, w, h, c = x.shape  # 10,24,24,6
         feature_w = w // 2
-        feature = np.zeros((b, feature_w, feature_w, c))
+        feature = np.zeros((b, feature_w, feature_w, c))  # 10,12,12,6
 
         # 记录最大池化时最大值的位置信息用于反向传播
         self.feature_mask = np.zeros((b, w, h, c))
+        # print(b,w,h,c);exit()
         for bi in range(b):
             for ci in range(c):
                 for i in range(feature_w):
@@ -151,10 +125,10 @@ class Pool(object):
                             x[bi, i * 2:i * 2 + 2, j * 2:j * 2 + 2, ci])
                         self.feature_mask[bi, i * 2 + index //
                                           2, j * 2 + index % 2, ci] = 1
-        return feature
+        return feature  # 返回10，12，12，6的数组
 
     def backward(self, delta):
-        return np.repeat(np.repeat(delta, 2, axis=1), 2, axis=2) * self.feature_mask
+        return np.repeat(delta.repeat(2, axis=1), 2, axis=2) * self.feature_mask
 
 
 # Relu
@@ -168,27 +142,57 @@ class Relu(object):
         return delta
 
 
+# 全连接层
+class Linear(object):
+    def __init__(self, inChannel, outChannel):
+        scale = np.sqrt(inChannel / 2)
+        self.W = np.random.standard_normal((inChannel, outChannel)) / scale  # 256,10
+        self.b = np.random.standard_normal(outChannel) / scale  # 10,
+        self.W_gradient = np.zeros((inChannel, outChannel))
+        self.b_gradient = np.zeros(outChannel)
+
+    def forward(self, x):
+        self.x = x
+        x_forward = np.dot(self.x, self.W) + self.b
+        return x_forward
+
+    def backward(self, delta, learning_rate):
+        # 梯度计算
+        batch_size = self.x.shape[0]
+        self.W_gradient = np.dot(self.x.T, delta) / batch_size  # bxin bxout
+        self.b_gradient = np.sum(delta, axis=0) / batch_size
+        # print(delta);exit()
+        delta_backward = np.dot(delta, self.W.T)                # bxout inxout
+        # 反向传播
+        self.W -= self.W_gradient * learning_rate
+        self.b -= self.b_gradient * learning_rate
+
+        return delta_backward
+
+
 # Softmax
 class Softmax(object):
     def cal_loss(self, predict, label):
-        batchsize, classes = predict.shape
+        batchsize, classes = predict.shape  # 10，10
         self.predict(predict)
         loss = 0
         delta = np.zeros(predict.shape)
         for i in range(batchsize):
             delta[i] = self.softmax[i] - label[i]
+            # print(label[i]);exit()
             loss -= np.sum(np.log(self.softmax[i]) * label[i])
         loss /= batchsize
         return loss, delta
 
     def predict(self, predict):
-        batchsize, classes = predict.shape
+        batchsize, classes = predict.shape  # 10，10
         self.softmax = np.zeros(predict.shape)
         for i in range(batchsize):
-            predict_tmp = predict[i] - np.max(predict[i])
-            predict_tmp = np.exp(predict_tmp)
+            predict_tmp = np.exp(predict[i] - np.max(predict[i]))
+            # 计算batch中每一个元素的softmax概率并返回
             self.softmax[i] = predict_tmp / np.sum(predict_tmp)
-        return self.softmax
+
+        return self.softmax  # 10,10
 
 
 def train(train_images, train_labels):
@@ -211,14 +215,14 @@ def train(train_images, train_labels):
             X = train_images[i:i + batch]
             Y = train_labels[i:i + batch]
 
-            predict = conv1.forward(X)
+            predict = conv1.forward(X)  # 10,24,24,6
             predict = relu1.forward(predict)
-            predict = pool1.forward(predict)
-            predict = conv2.forward(predict)
+            predict = pool1.forward(predict)  # 10,12,12,6
+            predict = conv2.forward(predict)  # 10,8,8,16
             predict = relu2.forward(predict)
-            predict = pool2.forward(predict)
-            predict = predict.reshape(batch, -1)
-            predict = nn.forward(predict)
+            predict = pool2.forward(predict)  # 10,4,4,16
+            predict = predict.reshape(batch, -1)  # 10,256
+            predict = nn.forward(predict)  # 10,10
 
             loss, delta = softmax.cal_loss(predict, Y)
 
@@ -288,14 +292,17 @@ if __name__ == '__main__':
         training, validation, test = pickle.load(f, encoding='latin1')
 
     # 训练数据(total:50000)
-    tr = 6000
-    train_images = training[0][:tr].reshape(tr, 28, 28, 1)
-    train_labels = onehot(training[1][:tr], tr)
+    tr = 2000
+    shuffle1 = np.random.permutation(tr)
+    train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
+    train_labels = onehot(training[1][:tr], tr)[shuffle1]
 
     # 测试数据(total:10000)
     te = 1000
-    test_images = test[0][:te].reshape(te, 28, 28, 1)
-    test_labels = test[1][:te]
+    shuffle2 = np.random.permutation(te)
+    test_images = test[0][:te].reshape(te, 28, 28, 1)[shuffle2]
+    test_labels = test[1][:te][shuffle2]
+
     print("训练模型")
     train(train_images, train_labels)
     print("测试模型")

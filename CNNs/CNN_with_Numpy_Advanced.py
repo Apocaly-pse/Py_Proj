@@ -55,7 +55,7 @@ class Conv(object):
         feature_w = (wx - wk) // self.stride + 1  # 特征图尺寸24
         feature = np.zeros((bx, feature_w, feature_w, nk))  # 10,24,24,6
 
-        self.image_col = []  # 10,576,25，列表形式(采用append函数生成)
+        self.image_col = []  # 10,576,25，列表（一维向量）形式(采用append函数生成)
         kernel = self.k.reshape(-1, nk)  # (25, 6)
         for i in range(bx):
             image_col = img2col(self.x[i], wk, self.stride)  # (24x24, 25)
@@ -146,8 +146,8 @@ class Relu(object):
 class Linear(object):
     def __init__(self, inChannel, outChannel):
         scale = np.sqrt(inChannel / 2)
-        self.W = np.random.standard_normal((inChannel, outChannel)) / scale
-        self.b = np.random.standard_normal(outChannel) / scale
+        self.W = np.random.standard_normal((inChannel, outChannel)) / scale  # 256,10
+        self.b = np.random.standard_normal(outChannel) / scale  # 10,
         self.W_gradient = np.zeros((inChannel, outChannel))
         self.b_gradient = np.zeros(outChannel)
 
@@ -161,6 +161,7 @@ class Linear(object):
         batch_size = self.x.shape[0]
         self.W_gradient = np.dot(self.x.T, delta) / batch_size  # bxin bxout
         self.b_gradient = np.sum(delta, axis=0) / batch_size
+        # print(delta);exit()
         delta_backward = np.dot(delta, self.W.T)                # bxout inxout
         # 反向传播
         self.W -= self.W_gradient * learning_rate
@@ -183,26 +184,22 @@ class Softmax(object):
         return loss, delta
 
     def predict(self, predict):
-        batchsize, classes = predict.shape
+        batchsize, classes = predict.shape  # 10，10
         self.softmax = np.zeros(predict.shape)
         for i in range(batchsize):
-            predict_tmp = predict[i] - np.max(predict[i])
-            predict_tmp = np.exp(predict_tmp)
+            predict_tmp = np.exp(predict[i] - np.max(predict[i]))
+            # 计算batch中每一个元素的softmax概率并返回
             self.softmax[i] = predict_tmp / np.sum(predict_tmp)
-        return self.softmax
+
+        return self.softmax  # 10,10
 
 
 def train(train_images, train_labels):
-    # Mnist手写数字集
-    # 标签one-hot处理 (60000, 10)
-
-    conv1 = Conv(kernel_shape=(5, 5, 1, 6))   # 24x24x6
-    relu1 = Relu()
-    pool1 = Pool()                         # 12x12x6
-    conv2 = Conv(kernel_shape=(5, 5, 6, 16))  # 8x8x16
-    relu2 = Relu()
-    pool2 = Pool()                         # 4x4x16
-    nn = Linear(256, 10)
+    # 训练
+    conv = Conv(kernel_shape=(5, 5, 1, 8))  # 24x24x8
+    relu = Relu()
+    pool = Pool()                         # 12x12x8
+    nn = Linear(1152, 10)
     softmax = Softmax()
 
     lr = 0.005
@@ -212,54 +209,40 @@ def train(train_images, train_labels):
             X = train_images[i:i + batch]
             Y = train_labels[i:i + batch]
 
-            predict = conv1.forward(X)  # 10,24,24,6
-            predict = relu1.forward(predict)
-            predict = pool1.forward(predict)  # 10,12,12,6
-            predict = conv2.forward(predict)  # 10,8,8,16
-            predict = relu2.forward(predict)
-            predict = pool2.forward(predict)  # 10,4,4,16
+            predict = conv.forward(X)  # 10,8,8,16
+            predict = relu.forward(predict)
+            predict = pool.forward(predict)  # 10,4,4,16
             predict = predict.reshape(batch, -1)  # 10,256
             predict = nn.forward(predict)  # 10,10
-            # print(predict.shape);exit()
 
             loss, delta = softmax.cal_loss(predict, Y)
 
             delta = nn.backward(delta, lr)
-            delta = delta.reshape(batch, 4, 4, 16)
-            delta = pool2.backward(delta)
-            delta = relu2.backward(delta)
-            delta = conv2.backward(delta, lr)
-            delta = pool1.backward(delta)
-            delta = relu1.backward(delta)
-            conv1.backward(delta, lr)
+            delta = delta.reshape(batch, 12, 12, 8)
+            delta = pool.backward(delta)
+            delta = relu.backward(delta)
+            conv.backward(delta, lr)
 
             print("Epoch-{}-{:05d}".format(str(epoch), i),
                   ":", "loss:{:.4f}".format(loss))
 
         lr *= 0.95**(epoch + 1)
-        np.savez("data2.npz", k1=conv1.k, b1=conv1.b,
-                 k2=conv2.k, b2=conv2.b, w3=nn.W, b3=nn.b)
+        np.savez("data2.npz", k=conv.k, b=conv.b, w=nn.W, b_=nn.b)
 
 
 def eval(test_images, test_labels):
     r = np.load("data2.npz")
 
-    # Mnist手写数字集
-    conv1 = Conv(kernel_shape=(5, 5, 1, 6))  # 24x24x6
-    relu1 = Relu()
-    pool1 = Pool()  # 12x12x6
-    conv2 = Conv(kernel_shape=(5, 5, 6, 16))  # 8x8x16
-    relu2 = Relu()
-    pool2 = Pool()  # 4x4x16
-    nn = Linear(256, 10)
+    conv = Conv(kernel_shape=(5, 5, 1, 8))  # 24x24x8
+    relu = Relu()
+    pool = Pool()  # 4x4x16
+    nn = Linear(1152, 10)
     softmax = Softmax()
 
-    conv1.k = r["k1"]
-    conv1.b = r["b1"]
-    conv2.k = r["k2"]
-    conv2.b = r["b2"]
-    nn.W = r["w3"]
-    nn.n = r["b3"]
+    conv.k = r["k"]
+    conv.b = r["b"]
+    nn.W = r["w"]
+    nn.n = r["b_"]
 
     num = 0
     for i in range(len(test_images)):
@@ -267,12 +250,9 @@ def eval(test_images, test_labels):
         X = X[np.newaxis, :]
         Y = test_labels[i]
 
-        predict = conv1.forward(X)
-        predict = relu1.forward(predict)
-        predict = pool1.forward(predict)
-        predict = conv2.forward(predict)
-        predict = relu2.forward(predict)
-        predict = pool2.forward(predict)
+        predict = conv.forward(X)
+        predict = relu.forward(predict)
+        predict = pool.forward(predict)
         predict = predict.reshape(1, -1)
         predict = nn.forward(predict)
 
@@ -290,15 +270,20 @@ if __name__ == '__main__':
         training, validation, test = pickle.load(f, encoding='latin1')
 
     # 训练数据(total:50000)
-    tr = 6000
-    train_images = training[0][:tr].reshape(tr, 28, 28, 1)
-    train_labels = onehot(training[1][:tr], tr)
+    tr = 2000
+    shuffle1 = np.random.permutation(tr)
+    train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
+    # 标签one-hot处理 (60000, 10)
+    train_labels = onehot(training[1][:tr], tr)[shuffle1]
 
     # 测试数据(total:10000)
     te = 1000
-    test_images = test[0][:te].reshape(te, 28, 28, 1)
-    test_labels = test[1][:te]
+    shuffle2 = np.random.permutation(te)
+    test_images = test[0][:te].reshape(te, 28, 28, 1)[shuffle2]
+    test_labels = test[1][:te][shuffle2]
+
     print("训练模型")
     train(train_images, train_labels)
+
     print("测试模型")
     eval(test_images, test_labels)

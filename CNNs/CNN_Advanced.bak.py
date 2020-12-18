@@ -108,17 +108,17 @@ class Conv(object):
 # pool
 class Pool(object):
     def forward(self, x):
-        b, w, h, c = x.shape
-        new_w = w // 2
-        feature = np.zeros((b, new_w, new_w, c))
+        b, w, h, c = x.shape  # 10,24,24,6
+        feature_w = w // 2
+        feature = np.zeros((b, feature_w, feature_w, c))  # 10,12,12,6
 
         # 记录最大池化时最大值的位置信息用于反向传播
         self.feature_mask = np.zeros((b, w, h, c))
         # print(b,w,h,c);exit()
         for bi in range(b):
             for ci in range(c):
-                for i in range(new_w):
-                    for j in range(new_w):
+                for i in range(feature_w):
+                    for j in range(feature_w):
                         feature[bi, i, j, ci] = np.max(
                             x[bi, i * 2:i * 2 + 2, j * 2:j * 2 + 2, ci])
                         index = np.argmax(
@@ -186,7 +186,6 @@ class Softmax(object):
     def predict(self, predict):
         batchsize, classes = predict.shape  # 10，10
         self.softmax = np.zeros(predict.shape)
-
         for i in range(batchsize):
             predict_tmp = np.exp(predict[i] - np.max(predict[i]))
             # 计算batch中每一个元素的softmax概率并返回
@@ -195,13 +194,12 @@ class Softmax(object):
         return self.softmax  # 10,10
 
 
-def train(train_images, train_labels, ksize=3, batch_size=5, lr=.005):
+def train(train_images, train_labels, batch_size=10, lr=.005):
     # 训练
-    conv = Conv(kernel_shape=(ksize, ksize, 1, 8))  # 26x26x8
+    conv = Conv(kernel_shape=(5, 5, 1, 8))  # 24x24x8
     relu = Relu()
-    pool = Pool()                         # 13x13x8
-    pool_size = (28 - ksize + 1) // 2
-    nn = Linear(pool_size * pool_size * 8, 10)
+    pool = Pool()                         # 12x12x8
+    nn = Linear(1152, batch_size)
     softmax = Softmax()
 
     for epoch in range(1):
@@ -209,38 +207,39 @@ def train(train_images, train_labels, ksize=3, batch_size=5, lr=.005):
             X = train_images[i:i + batch_size]
             Y = train_labels[i:i + batch_size]
 
-            predict = conv.forward(X)  # 10,13,13,8
+            predict = conv.forward(X)  # 10,12,12,8
             predict = relu.forward(predict)
-            predict = pool.forward(predict)  # 10,13,13,8
-            predict = nn.forward(predict.reshape(batch_size, -1))
+            predict = pool.forward(predict)  # 10,12,12,8
+            predict = predict.reshape(batch_size, -1)  # 10,1152
+            predict = nn.forward(predict)  # 10,10
 
             loss, delta = softmax.cal_loss(predict, Y)
 
             delta = nn.backward(delta, lr)
-            delta = delta.reshape(batch_size, pool_size, pool_size, 8)
+            delta = delta.reshape(batch_size, 12, 12, 8)
             delta = pool.backward(delta)
             delta = relu.backward(delta)
             conv.backward(delta, lr)
 
-            print("Epoch-{}-{:05d}".format(str(epoch), i + batch_size),
+            print("Epoch-{}-{:05d}".format(str(epoch), i),
                   ":", "loss:{:.4f}".format(loss))
 
-        np.savez("data2.npz", k=conv.k, b=conv.b, W=nn.W, nb=nn.b)
+        lr *= 0.95**(epoch + 1)
+        np.savez("data2.npz", k=conv.k, b=conv.b, w=nn.W, nb=nn.b)
 
 
-def eval(test_images, test_labels, ksize=3, batch_size=5):
+def eval(test_images, test_labels, batch_size=10):
     r = np.load("data2.npz")
 
-    conv = Conv(kernel_shape=(ksize, ksize, 1, 8))  # 26x26x8
+    conv = Conv(kernel_shape=(5, 5, 1, 8))  # 24x24x8
     relu = Relu()
-    pool = Pool()  # 13x13x8
-    pool_size = (28 - ksize + 1) // 2
-    nn = Linear(pool_size * pool_size * 8, 10)
+    pool = Pool()  # 12x12x8
+    nn = Linear(1152, batch_size)
     softmax = Softmax()
 
     conv.k = r["k"]
     conv.b = r["b"]
-    nn.W = r["W"]
+    nn.W = r["w"]
     nn.b = r["nb"]
 
     num = 0
@@ -252,7 +251,8 @@ def eval(test_images, test_labels, ksize=3, batch_size=5):
         predict = conv.forward(X)
         predict = relu.forward(predict)
         predict = pool.forward(predict)
-        predict = nn.forward(predict.reshape(1, -1))
+        predict = predict.reshape(1, -1)
+        predict = nn.forward(predict)
 
         predict = softmax.predict(predict)
 
@@ -268,7 +268,7 @@ if __name__ == '__main__':
         training, validation, test = pickle.load(f, encoding='latin1')
 
     # 训练数据(total:50000)
-    tr = 10000
+    tr = 2000
     shuffle1 = np.random.permutation(tr)
     train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
     # 标签one-hot处理 (60000, 10)

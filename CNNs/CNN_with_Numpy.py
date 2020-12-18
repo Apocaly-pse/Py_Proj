@@ -257,15 +257,15 @@ with gzip.open('mnist.pkl.gz', 'rb') as f:
     training, validation, test = pickle.load(f, encoding='latin1')
 
 # 训练数据(total:50000)
-train_images = training[0][:2000]
-train_labels = training[1][:2000]
+train_images = training[0][:3000]
+train_labels = training[1][:3000]
 # 测试数据(total:10000)
 test_images = test[0][:1000]
 test_labels = test[1][:1000]
 
 # ----------模型调用-----------
 # 实例化三个层
-kernel_size = 3
+kernel_size = 5
 kernel_num = 8
 maxpool_size = 2
 softmax_nodes = (28 - kernel_size + 1) // maxpool_size

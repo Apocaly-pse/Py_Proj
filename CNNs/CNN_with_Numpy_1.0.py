@@ -96,8 +96,8 @@ class MaxPool:
         # 此时的输入来自卷积层的输出
         height, width, kernel_num = input.shape
         # 先初始化输出矩阵
-        output = np.zeros((height // self.pool_size, width //
-                           self.pool_size, kernel_num))
+        output = np.zeros(
+            (height // self.pool_size, width // self.pool_size, kernel_num))
 
         # 开始计算最大值，使用`amax()`函数
         for iter_img, i, j in self.iterate_imgs(input):
@@ -125,19 +125,6 @@ class MaxPool:
                     nabla_input[i + h, j + w, n] = nabla_out[i, j, n]
             # 返回损失函数关于输入的梯度
             return nabla_input
-
-
-class FullConnect:
-    # 使用全连接层连接池化层与Softmax层
-
-    def __init__(self, ):
-        pass
-
-    def forward(self, ):
-        pass
-
-    def backprop(slef, ):
-        pass
 
 
 class Softmax:
@@ -257,8 +244,8 @@ with gzip.open('mnist.pkl.gz', 'rb') as f:
     training, validation, test = pickle.load(f, encoding='latin1')
 
 # 训练数据(total:50000)
-train_images = training[0][:3000]
-train_labels = training[1][:3000]
+train_images = training[0][:5000]
+train_labels = training[1][:5000]
 # 测试数据(total:10000)
 test_images = test[0][:1000]
 test_labels = test[1][:1000]

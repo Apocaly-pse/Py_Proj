@@ -55,20 +55,19 @@ class Conv(object):
                             'constant', constant_values=0)
         bx, wx, hx, cx = self.x.shape  # batchsize，width，height，channelnum
         wk, hk, ck, nk = self.k.shape  # kernel的宽、高、通道数、个数:5,5,1,6
-        fsize = (wx - wk) // self.stride + 1  # 特征图大小
-        fimgs = np.zeros((bx, fsize, fsize, nk))  # 10,24,24,6
+        feature_w = (wx - wk) // self.stride + 1  # 特征图大小
+        feature = np.zeros((bx, feature_w, feature_w, nk))  # 10,24,24,6
 
         self.image_col = []  # 10,576,25，列表（一维向量）形式(采用append函数生成)
         kernel = self.k.reshape(-1, nk)  # (25, 6)
         for i in range(bx):
             image_col = img2col(self.x[i], wk, self.stride)  # (24x24, 25)
-            fimgs[i] = (image_col @ kernel + self.b
-                        ).reshape(fsize, fsize, nk)  # 24，24，6
-            # 储存minibatch数据供反向传播使用
+            feature[i] = (image_col @ kernel + self.b
+                          ).reshape(feature_w, feature_w, nk)  # 24，24，6
             self.image_col.append(image_col)
-        return fimgs  # 10,24,24,6
+        return feature  # 10,24,24,6
 
-    def backward(self, delta, lr):
+    def backward(self, delta, learning_rate):
         bx, wx, hx, cx = self.x.shape  # batch,14,14,inchannel
         wk, hk, ck, nk = self.k.shape  # 5,5,inChannel,outChannel
         bd, wd, hd, cd = delta.shape  # batch,10,10,outChannel
@@ -101,8 +100,8 @@ class Conv(object):
                 pad_delta_col @ k_180_col).reshape(wx, hx, ck)
 
         # 反向传播
-        self.k -= self.k_gradient * lr
-        self.b -= self.b_gradient * lr
+        self.k -= self.k_gradient * learning_rate
+        self.b -= self.b_gradient * learning_rate
 
         return delta_backward
 
@@ -159,15 +158,15 @@ class Linear(object):
         x_forward = self.x @ self.W + self.b
         return x_forward
 
-    def backward(self, delta, lr):
+    def backward(self, delta, learning_rate):
         # 梯度计算
         batch_size = self.x.shape[0]
         self.W_gradient = self.x.T @ delta / batch_size  # bxin bxout
         self.b_gradient = np.sum(delta, axis=0) / batch_size
         delta_backward = delta @ self.W.T                # bxout inxout
         # 反向传播
-        self.W -= self.W_gradient * lr
-        self.b -= self.b_gradient * lr
+        self.W -= self.W_gradient * learning_rate
+        self.b -= self.b_gradient * learning_rate
 
         return delta_backward
 
@@ -197,7 +196,7 @@ class Softmax(object):
         return self.softmax  # 10,10
 
 
-def train(train_images, train_labels, ksize=3, batch_size=3, lr=.005, epoch=3):
+def train(train_images, train_labels, ksize=3, batch_size=5, lr=.005, epoch=5):
     # 训练
     conv = Conv(kernel_shape=(ksize, ksize, 1, 8))  # 26x26x8
     pool = Pool()                         # 13x13x8
@@ -228,7 +227,7 @@ def train(train_images, train_labels, ksize=3, batch_size=3, lr=.005, epoch=3):
         np.savez("params.npz", k=conv.k, b=conv.b, W=nn.W, nb=nn.b)
 
 
-def eval(test_images, test_labels, ksize=3, batch_size=3):
+def eval(test_images, test_labels, ksize=3, batch_size=5):
     r = np.load("params.npz")
 
     conv = Conv(kernel_shape=(ksize, ksize, 1, 8))  # 26x26x8
@@ -259,26 +258,25 @@ def eval(test_images, test_labels, ksize=3, batch_size=3):
     print("TEST-ACC: ", num / len(test_images) * 100, "%")
 
 
-if __name__ == '__main__':
-    # 导入数据（image及label）
-    with gzip.open('mnist.pkl.gz', 'rb') as f:
-        training, validation, test = pickle.load(f, encoding='bytes')
+# 导入数据（image及label）
+with gzip.open('mnist.pkl.gz', 'rb') as f:
+    training, validation, test = pickle.load(f, encoding='bytes')
 
-    # 训练数据(total:50000)
-    tr = 6000
-    shuffle1 = np.random.permutation(tr)
-    train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
-    # 标签one-hot处理 (60000, 10)
-    train_labels = onehot(training[1][:tr], tr)[shuffle1]
+# 训练数据(total:50000)
+tr = 5000
+shuffle1 = np.random.permutation(tr)
+train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
+# 标签one-hot处理
+train_labels = onehot(training[1][:tr], tr)[shuffle1]
 
-    # 测试数据(total:10000)
-    te = 1000
-    shuffle2 = np.random.permutation(te)
-    test_images = test[0][:te].reshape(te, 28, 28, 1)[shuffle2]
-    test_labels = test[1][:te][shuffle2]
+# 测试数据(total:10000)
+te = 1000
+shuffle2 = np.random.permutation(te)
+test_images = test[0][:te].reshape(te, 28, 28, 1)[shuffle2]
+test_labels = test[1][:te][shuffle2]
 
-    print("训练模型")
-    train(train_images, train_labels)
+print("训练模型")
+train(train_images, train_labels)
 
-    print("测试模型")
-    eval(test_images, test_labels)
+print("测试模型")
+eval(test_images, test_labels)

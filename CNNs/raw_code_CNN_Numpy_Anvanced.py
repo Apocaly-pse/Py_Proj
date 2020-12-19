@@ -198,9 +198,9 @@ def train(train_images, train_labels, lr=.005):
     nn = Linear(256, 10)
     softmax = Softmax()
 
-    batch = 3
-    for epoch in range(1):
-        for i in range(0, 6000, batch):
+    batch = 5
+    for epoch in range(3):
+        for i in range(0, 10000, batch):
             X = train_images[i:i + batch]
             Y = train_labels[i:i + batch]
 
@@ -280,7 +280,7 @@ if __name__ == '__main__':
         training, validation, test = pickle.load(f, encoding='latin1')
 
     # 训练数据(total:50000)
-    tr = 6000
+    tr = 10000
     shuffle1 = np.random.permutation(tr)
     train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
     # 标签one-hot处理 (60000, 10)

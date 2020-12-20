@@ -56,7 +56,6 @@ class Conv:
         nabla_kernels = np.zeros(self.kernels.shape)
         # 遍历前面生成的小图像矩阵及索引
         for iter_img, i, j in self.iterate_imgs(self.last_input):
-            # 逐个计算，一次更新一个卷积核
             for n in range(self.kernel_num):
                 # 对小图像矩阵求和(遍历ij)即可得到最后的梯度值
                 nabla_kernels[n] += nabla_out[i, j, n] * iter_img

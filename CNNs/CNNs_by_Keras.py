@@ -27,7 +27,7 @@ model = Sequential([
     Conv2D(8, 3, input_shape=(28, 28, 1), use_bias=False),
     MaxPooling2D(pool_size=2),
     Flatten(),
-    # Dense(10,),
+    # Dense(1352),
     Dense(10, activation='softmax'),
 ])
 
@@ -44,7 +44,7 @@ model.compile(
 model.fit(
     train_images, to_categorical(train_labels),
     shuffle=True,
-    batch_size=1,
+    batch_size=3,
     epochs=3,
     verbose=1,
     validation_data=(test_images, to_categorical(test_labels)),

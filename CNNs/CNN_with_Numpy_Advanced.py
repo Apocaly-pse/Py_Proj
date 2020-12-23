@@ -161,7 +161,7 @@ class Pool(object):
                             x[bi, i * 2:i * 2 + 2, j * 2:j * 2 + 2, ci])
                         self.feature_mask[bi, i * 2 + index // 2,
                                           j * 2 + index % 2, ci] = 1
-        return feature.reshape(bsize, -1)  # 3,1352
+        return feature  # 3,13,13,8
 
     def backward(self, delta):
         # 向1,2两个轴扩展维度:3,13,13,8->3,26,26,8
@@ -191,7 +191,8 @@ class Dense(object):
         self.b_gradient = np.zeros(outsize)
 
     def forward(self, x):
-        self.x = x  # 3,1352
+        self.xshape = x.shape  # 3,13,13,8
+        self.x = x.reshape(self.xshape[0], -1)  # 3,1352
         return self.x @ self.W + self.b  # 3,10
 
     def backward(self, delta, lr):
@@ -205,13 +206,13 @@ class Dense(object):
         self.W -= self.W_gradient * lr
         self.b -= self.b_gradient * lr
 
-        return delta_backward
+        return delta_backward.reshape(self.xshape)
 
 
 # Softmax
 class Softmax(object):
     def cal_loss(self, predict, label):
-        bsize, classes = predict.shape  # 3,10
+        bsize, _ = predict.shape  # 3,10
         self.predict(predict)
         loss = 0
         delta = np.zeros(predict.shape)
@@ -223,7 +224,7 @@ class Softmax(object):
         return loss, delta
 
     def predict(self, predict):
-        bsize, classes = predict.shape  # 3,10
+        bsize, _ = predict.shape  # 3,10
         self.softmax = np.zeros(predict.shape)
 
         for i in range(bsize):
@@ -234,7 +235,7 @@ class Softmax(object):
         return self.softmax  # 3,10
 
 
-def train(train_images, train_labels, ksize=3, bsize=3, lr=.005, epoch=3):
+def train(train_images, train_labels, ksize=3, bsize=3, lr=.005, epochs=3):
     # 训练
     conv = Conv(kshape=(ksize, ksize, 1, 8))  # 26x26x8
     pool = Pool()                         # 13x13x8
@@ -242,25 +243,25 @@ def train(train_images, train_labels, ksize=3, bsize=3, lr=.005, epoch=3):
     dense = Dense(psize ** 2 * 8, 10)
     softmax = Softmax()
 
-    for ep in range(epoch):
+    for epoch in range(epochs):
         for i in range(0, len(train_images), bsize):
             X = train_images[i:i + bsize]
             Y = train_labels[i:i + bsize]
 
-            predict = conv.forward(X)  # 3,13,13,8
+            # 前向传播过程
+            predict = conv.forward(X)  # 3,26,26,8
             predict = pool.forward(predict)  # 3,13,13,8
-            predict = dense.forward(predict)
-
+            predict = dense.forward(predict)  # 3,10
             loss, delta = softmax.cal_loss(predict, Y)
 
+            # 反向传播过程
             delta = dense.backward(delta, lr)
-            delta = delta.reshape(bsize, psize, psize, 8)
             delta = pool.backward(delta)
             conv.backward(delta, lr)
 
-            print("Epoch-{}-{:05d}".format(str(ep + 1), i + bsize),
+            print("Epoch-{}-{:05d}".format(str(epoch + 1), i + bsize),
                   ":", "loss:{:.4f}".format(loss))
-        lr *= .95**(ep + 1)
+        lr *= .95**(epoch + 1)
         # 存储模型训练的权重信息，方便测试模型时调用
         np.savez("params.npz", k=conv.k, b=conv.b, W=dense.W, nb=dense.b)
 
@@ -283,12 +284,13 @@ def eval(test_images, test_labels, ksize=3, bsize=3):
     num = 0
     for i in range(len(test_images)):
         X = test_images[i]
-        X = X[np.newaxis, :]
+        X = X[np.newaxis]  # 扩展数组维度(图像需要变为4轴)
         Y = test_labels[i]
 
+        # 前向传播计算梯度
         predict = conv.forward(X)
         predict = pool.forward(predict)
-        predict = dense.forward(predict.reshape(1, -1))
+        predict = dense.forward(predict)
         predict = softmax.predict(predict)
 
         if np.argmax(predict) == Y:
@@ -310,13 +312,13 @@ if __name__ == '__main__':
     train_labels = onehot(training[1][:tr], tr)[shuffle1]
 
     # 测试数据(total:10000)
-    te = 10000
+    te = 100
     shuffle2 = np.random.permutation(te)
     test_images = test[0][:te].reshape(te, 28, 28, 1)[shuffle2]
     test_labels = test[1][:te][shuffle2]
 
     print("训练模型")
-    train(train_images, train_labels)
+    # train(train_images, train_labels)
 
     print("测试模型")
     eval(test_images, test_labels)

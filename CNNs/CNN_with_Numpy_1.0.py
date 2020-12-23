@@ -156,7 +156,6 @@ class Softmax:
     def backprop(self, nabla_out, lr):
         # 首先对Softmax层(输出层,全连接层)进行反向传播
         # nabla_out是损失函数关于out(预测值)的梯度
-        # print(nabla_out);exit()
         for i, gradient in enumerate(nabla_out):
             # 判断gradient是否为0，为0则执行下一步循环
             # 对准确值的梯度进行反向传播
@@ -164,7 +163,7 @@ class Softmax:
                 continue
             t_exp = np.exp(self.last_total)
 
-            # k!=c情形，先全部赋值给out_t,后再单独修改k==c情形的值
+            # 先全部赋值给out_t,后再单独修改k==c情形的值
             out_t = -t_exp[i] * t_exp / (np.sum(t_exp) ** 2)
             out_t[i] = t_exp[i] * \
                 (np.sum(t_exp) - t_exp[i]) / (np.sum(t_exp) ** 2)
@@ -192,14 +191,14 @@ class Softmax:
             self.biases -= lr * nabla_b
 
             # 返回损失函数关于输入的梯度，用于池化层的backprop
-            # 1352 -> 13x13x8
+            # 1352 -> 13x13x8，便于梯度回传至池化层
             return nabla_inputs.reshape(self.last_input_shape)
 
 
 def Forward(image, label):
     # 定义函数用于模型的前向传播过程，输出交叉熵损失函数值及精度
     # 原始数据是(784, 1)格式的图片，像素值为[0, 1]，需要进行转换
-    output = conv.forward(image - 0.5)
+    output = conv.forward(image)
     output = pool.forward(output)
     # 输出值output3为向量形式(10,1)的概率，最大概率即模型判定的数字
     output = softmax.forward(output)
@@ -214,7 +213,7 @@ def Forward(image, label):
 
 def Train(image, label, lr=.005):
     # 首先进行前向传播，lr为学习率默认值
-    output = conv.forward(image - 0.5)
+    output = conv.forward(image)
     output = pool.forward(output)
 
     # 输出值output为向量形式(10,)的概率
@@ -241,7 +240,7 @@ def Train(image, label, lr=.005):
 
 # 导入数据（image及label）
 with gzip.open('mnist.pkl.gz', 'rb') as f:
-    training, validation, test = pickle.load(f, encoding='latin1')
+    training, validation, test = pickle.load(f, encoding='bytes')
 
 # 训练数据(total:50000)
 train_images = training[0][:50000]

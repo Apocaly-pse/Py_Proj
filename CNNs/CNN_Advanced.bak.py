@@ -12,7 +12,7 @@ https://www.cnblogs.com/qxcheng/p/11729773.html
 
 ===================模型基本结构===================
 卷积层->最大值池化层->全连接层->Softmax层
-
+=================================================
 =====================参数选择=====================
 batch size: 3
 learning rate: 0.005
@@ -23,12 +23,12 @@ padding: 0
 stride(kernel): 1
 stride(maxpool): 2
 epoch: 3
-
+=================================================
 ================数据维度变化(batch)===============
 输入数据->(3,28,28,1)->卷积处理->(3,26,26,8)->
 池化处理->(3,13,13,8)->(3,1352)->全连接层->
 (3,10)->Softmax层(10,)->输出结果
-
+=================================================
 """
 
 
@@ -99,7 +99,7 @@ class Conv(object):
         bsize, wx, hx, cx = self.x.shape  # 3,28,28,1
         wk, hk, ck, nk = self.k.shape  # 3,3,1,8
         bd, wd, hd, cd = delta.shape  # 池化层输出的梯度:3,26,26,8
-        # 计算self.k_gradient, self.b_gradient
+        # 计算卷积核(权重)和偏置的梯度
         delta_col = delta.reshape(bd, -1, cd)  # 3,676,8
 
         for i in range(bsize):
@@ -119,7 +119,7 @@ class Conv(object):
         k_180_col = k_180.reshape(-1, ck)  # 72,1
 
         # 若池化层输出的特征图大小(26)-卷积核大小(3)+1 != 原图像大小(28)
-        # 则需要在转置卷积时对输出(误差矩阵)做零填充
+        # 则需要在转置卷积时对输出(误差矩阵)做零填充,以进行转置卷积
         if hd - hk + 1 != hx:
             pad = (hx - hd + hk - 1) // 2
             pad_delta = np.pad(
@@ -139,7 +139,7 @@ class Conv(object):
         self.k -= self.k_gradient * lr
         self.b -= self.b_gradient * lr
 
-        return None
+        return delta_backward
 
 
 # pool
@@ -172,13 +172,13 @@ class Pool(object):
 
 # # Relu
 # class Relu(object):
-#     def forward(self, x):
-#         self.x = x
-#         return np.maximum(x, 0)
+    # def forward(self, x):
+    #     self.x = x
+    #     return np.maximum(x, 0)
 
-#     def backward(self, delta):
-#         delta[self.x < 0] = 0
-#         return delta
+    # def backward(self, delta):
+    #     delta[self.x < 0] = 0
+    #     return delta
 
 
 # 全连接层
@@ -231,7 +231,6 @@ class Softmax(object):
             predict_tmp = np.exp(predict[i] - np.max(predict[i]))
             # 计算batch中每一个元素的softmax概率并返回
             self.softmax[i] = predict_tmp / np.sum(predict_tmp)
-
         return self.softmax  # 3,10
 
 
@@ -308,7 +307,7 @@ if __name__ == '__main__':
     tr = 49998
     shuffle1 = np.random.permutation(tr)
     train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
-    # 标签one-hot处理 (60000, 10)
+    # 标签one-hot处理
     train_labels = onehot(training[1][:tr], tr)[shuffle1]
 
     # 测试数据(total:10000)
@@ -318,7 +317,7 @@ if __name__ == '__main__':
     test_labels = test[1][:te][shuffle2]
 
     print("训练模型")
-    # train(train_images, train_labels)
+    train(train_images, train_labels)
 
     print("测试模型")
     eval(test_images, test_labels)

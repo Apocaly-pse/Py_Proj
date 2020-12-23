@@ -61,8 +61,10 @@ class Conv(object):
         self.stride = stride
         self.pad = pad
         scale = np.sqrt(3 * in_channel * width * height / out_channel)
+        # 初始化权重和偏置
         self.k = np.random.standard_normal(kernel_shape) / scale
         self.b = np.random.standard_normal(out_channel) / scale
+        # 初始化梯度
         self.k_gradient = np.zeros(kernel_shape)
         self.b_gradient = np.zeros(out_channel)
 
@@ -73,41 +75,45 @@ class Conv(object):
                             ((0, 0), (self.pad, self.pad),
                              (self.pad, self.pad), (0, 0)),
                             'constant', constant_values=0)
-        bx, wx, hx, cx = self.x.shape  # bsize，width，height，channelnum
-        wk, hk, ck, nk = self.k.shape  # kernel的宽、高、通道数、个数:5,5,1,6
+        bsize, wx, hx, cx = self.x.shape  # 3,28,28,1
+        # kernel的宽、高、输入通道数、输出通道数:
+        wk, hk, ck, nk = self.k.shape  # 3,3,1,8
         fsize = (wx - wk) // self.stride + 1  # 特征图大小
-        fimgs = np.zeros((bx, fsize, fsize, nk))  # 10,24,24,6
+        fimgs = np.zeros((bsize, fsize, fsize, nk))  # 3,26,26,8
 
-        self.image_col = []  # 10,576,25，列表（一维向量）形式(采用append函数生成)
-        kernel = self.k.reshape(-1, nk)  # (25, 6)
-        for i in range(bx):
-            image_col = img2col(self.x[i], wk, self.stride)  # (24x24, 25)
+        self.image_col = []  # 3,676,9,列表（一维向量）形式(采用append函数生成)
+        kernel = self.k.reshape(-1, nk)  # (3x3, 8)
+        for i in range(bsize):
+            image_col = img2col(self.x[i], wk, self.stride)  # (26x26, 3x3)
             fimgs[i] = (image_col @ kernel + self.b
-                        ).reshape(fsize, fsize, nk)  # 24，24，6
+                        ).reshape(fsize, fsize, nk)  # 26,26,8
             # 储存minibatch数据供反向传播使用
             self.image_col.append(image_col)
-        return fimgs  # 10,24,24,6
+        return fimgs  # 3,26,26,8
 
     def backward(self, delta, lr):
-        bx, wx, hx, cx = self.x.shape  # batch,14,14,inchannel
-        wk, hk, ck, nk = self.k.shape  # 5,5,insize,outsize
-        bd, wd, hd, cd = delta.shape  # batch,10,10,outsize
-
-        # 计算self.k_gradient,self.b_gradient
-        delta_col = delta.reshape(bd, -1, cd)
-        for i in range(bx):
+        bsize, wx, hx, cx = self.x.shape  # 3,28,28,1
+        wk, hk, ck, nk = self.k.shape  # 3,3,1,8
+        bd, wd, hd, cd = delta.shape  # 池化层输出的梯度,3,26,26,8
+        # 计算self.k_gradient, self.b_gradient
+        delta_col = delta.reshape(bd, -1, cd)  # 3,676,8
+        for i in range(bsize):
             self.k_gradient += (self.image_col[i].T @ delta_col[i]
-                                ).reshape(self.k.shape)
-        self.k_gradient /= bx
-        self.b_gradient += np.sum(delta_col, axis=(0, 1))
-        self.b_gradient /= bx
+                                ).reshape(self.k.shape)  # 9,8->3,3,1,8
+        self.k_gradient /= bsize
+        self.b_gradient += np.sum(delta_col, axis=(0, 1))  # 8,
+        self.b_gradient /= bsize
 
-        # 计算delta_backward
-        delta_backward = np.zeros(self.x.shape)
-        k_180 = np.rot90(self.k, 2, (0, 1))      # numpy矩阵旋转180度
-        k_180 = k_180.swapaxes(2, 3)
-        k_180_col = k_180.reshape(-1, ck)
+        # 计算前向传播的误差梯度
+        delta_backward = np.zeros(self.x.shape)  # 3,28,28,1
+        # 将卷积核矩阵旋转180°(上下颠倒，左右翻转)
+        k_180 = np.rot90(self.k, 2, (0, 1))  # 3,3,1,8
+        # 交换第3,4轴并展平,便于下面矩阵乘积运算
+        k_180 = k_180.swapaxes(2, 3)  # 3,3,8,1
+        k_180_col = k_180.reshape(-1, ck)  # 72,1
 
+        # 若池化输出的特征图大小-卷积核大小+1 != 原图像大小
+        # 则需要在转置卷积时对输出(误差矩阵)做零填充
         if hd - hk + 1 != hx:
             pad = (hx - hd + hk - 1) // 2
             pad_delta = np.pad(
@@ -115,10 +121,12 @@ class Conv(object):
         else:
             pad_delta = delta
 
-        for i in range(bx):
-            pad_delta_col = img2col(pad_delta[i], wk, self.stride)
-            delta_backward[i] = (
-                pad_delta_col @ k_180_col).reshape(wx, hx, ck)
+        for i in range(bsize):
+            # 生成输出矩阵的特征图
+            pad_delta_col = img2col(pad_delta[i], wk, self.stride)  # 784,72
+            # 计算误差
+            delta_backward[i] = (pad_delta_col @ k_180_col
+                                 ).reshape(wx, hx, ck)  # 28,28,1
 
         # 反向传播
         self.k -= self.k_gradient * lr
@@ -134,7 +142,7 @@ class Pool(object):
         new_w, new_h = w // 2, h // 2
         feature = np.zeros((bsize, new_w, new_h, c))
 
-        # 记录最大池化时最大值的位置信息用于反向传播
+        # 记录最大池化时最大值的位置信息(mask:掩码)用于反向传播
         self.feature_mask = np.zeros((bsize, w, h, c))
         for bi in range(bsize):
             for ci in range(c):
@@ -149,9 +157,10 @@ class Pool(object):
         return feature.reshape(bsize, -1)
 
     def backward(self, delta):
-        # 向两个方向扩展维度，并与存储最大值位置的矩阵做Hadamard积
+        # 向1,2两个轴扩展维度:3,13,13,8->3,26,26,8
+        # 并与存储最大值位置的矩阵做Hadamard积
         return np.repeat(
-            delta.repeat(2, axis=1), 2, axis=2) * self.feature_mask
+            np.repeat(delta, 2, axis=1), 2, axis=2) * self.feature_mask
 
 
 # # Relu

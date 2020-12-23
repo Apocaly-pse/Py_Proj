@@ -155,15 +155,13 @@ class Softmax:
 
     def backprop(self, nabla_out, lr):
         # 首先对Softmax层(输出层,全连接层)进行反向传播
-        # 注意这里的nabla_out是损失函数关于输出out的梯度(偏导数)
+        # nabla_out是损失函数关于out(预测值)的梯度
+        # print(nabla_out);exit()
         for i, gradient in enumerate(nabla_out):
-            # 判断gradient是否为0，为0则执行循环下一步
-            # k != c,梯度为0，此时未正确分类
-            # k == c 梯度为1，此时正确分类
-            # 当k == c时尝试找到i
+            # 判断gradient是否为0，为0则执行下一步循环
+            # 对准确值的梯度进行反向传播
             if gradient == 0:
                 continue
-
             t_exp = np.exp(self.last_total)
 
             # k!=c情形，先全部赋值给out_t,后再单独修改k==c情形的值
@@ -218,13 +216,16 @@ def Train(image, label, lr=.005):
     # 首先进行前向传播，lr为学习率默认值
     output = conv.forward(image - 0.5)
     output = pool.forward(output)
-    # 输出值output3为向量形式(10,1)的概率，最大概率即模型判定的数字
+
+    # 输出值output为向量形式(10,)的概率
+    # 最大值即模型识别的数字
     output = softmax.forward(output)
 
     # 计算交叉熵损失及精度
     loss = -np.log(output[label])
     # 正确返回1，否则为0
     accuracy = 1 if np.argmax(output) == label else 0
+    # 上面的代码可以使用下面一句来实现，但是这样写更加直观
     # output, loss, accuracy = Forward(image, label)
     # 计算初始梯度
     gradient = np.zeros(10)
@@ -243,8 +244,8 @@ with gzip.open('mnist.pkl.gz', 'rb') as f:
     training, validation, test = pickle.load(f, encoding='latin1')
 
 # 训练数据(total:50000)
-train_images = training[0][:5000]
-train_labels = training[1][:5000]
+train_images = training[0][:50000]
+train_labels = training[1][:50000]
 # 测试数据(total:10000)
 test_images = test[0][:1000]
 test_labels = test[1][:1000]
@@ -264,7 +265,7 @@ softmax = Softmax(pow(softmax_nodes, 2) * kernel_num, 10)
 print("开始训练模型")
 
 # epoch: 迭代期
-for epoch in range(1):
+for epoch in range(2):
     print('--- Epoch %d ---' % (epoch + 1))
     # 使用np.random.permutation()函数打乱（shuffle）训练数据
     shuffle = np.random.permutation(len(train_images))

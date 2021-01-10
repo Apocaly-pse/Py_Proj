@@ -2,9 +2,6 @@ import requests
 import re
 from lxml import etree
 
-"""
-知乎爬虫
-"""
 
 url = "https://zhuanlan.zhihu.com/p/99341070"
 

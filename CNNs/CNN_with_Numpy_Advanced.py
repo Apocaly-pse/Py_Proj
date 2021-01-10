@@ -136,6 +136,8 @@ class Conv(object):
                                  ).reshape(wx, hx, ck)  # 28,28,1
 
         # 反向传播
+        # 使用惩罚函数更新卷积核
+
         self.k -= self.k_gradient * lr
         self.b -= self.b_gradient * lr
 
@@ -234,12 +236,13 @@ class Softmax(object):
         return self.softmax  # 3,10
 
 
-def train(train_images, train_labels, ksize=3, bsize=3, lr=.005, epochs=3):
+def train(train_images, train_labels, ksize=3,
+          bsize=3, lr=.005, epochs=3, knum=8):
     # 训练
-    conv = Conv(kshape=(ksize, ksize, 1, 8))  # 26x26x8
+    conv = Conv(kshape=(ksize, ksize, 1, knum))  # 26x26x8
     pool = Pool()                         # 13x13x8
     psize = (28 - ksize + 1) // 2
-    dense = Dense(psize ** 2 * 8, 10)
+    dense = Dense(psize ** 2 * knum, 10)
     softmax = Softmax()
 
     for epoch in range(epochs):
@@ -265,14 +268,14 @@ def train(train_images, train_labels, ksize=3, bsize=3, lr=.005, epochs=3):
         np.savez("params.npz", k=conv.k, b=conv.b, W=dense.W, nb=dense.b)
 
 
-def eval(test_images, test_labels, ksize=3, bsize=3):
+def eval(test_images, test_labels, ksize=3, bsize=3, knum=8):
     # 加载权重信息
     r = np.load("params.npz")
 
-    conv = Conv(kshape=(ksize, ksize, 1, 8))  # 26x26x8
+    conv = Conv(kshape=(ksize, ksize, 1, knum))  # 26x26x8
     pool = Pool()  # 13x13x8
     psize = (28 - ksize + 1) // 2
-    dense = Dense(psize ** 2 * 8, 10)
+    dense = Dense(psize ** 2 * knum, 10)
     softmax = Softmax()
 
     conv.k = r["k"]
@@ -304,7 +307,7 @@ if __name__ == '__main__':
         training, validation, test = pickle.load(f, encoding='bytes')
 
     # 训练数据(total:50000)
-    tr = 49998
+    tr = 9000
     shuffle1 = np.random.permutation(tr)
     train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
     # 标签one-hot处理

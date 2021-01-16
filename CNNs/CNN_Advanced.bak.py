@@ -1,5 +1,6 @@
 import gzip
 import pickle
+import time
 import numpy as np
 
 # 设置输出值位数：全部输出
@@ -89,7 +90,7 @@ class Conv(object):
         for i in range(bsize):
             image_col = self.img2col(self.x[i],
                                      wk, self.stride)  # (26x26, 3x3)
-            fimgs[i] = (image_col @ kernel + self.b
+            fimgs[i] = (np.dot(image_col, kernel) + self.b
                         ).reshape(fsize, fsize, nk)  # 26,26,8
             # 储存minibatch数据供反向传播使用
             self.image_col.append(image_col)
@@ -103,7 +104,7 @@ class Conv(object):
         delta_col = delta.reshape(bd, -1, cd)  # 3,676,8
 
         for i in range(bsize):
-            self.k_gradient += (self.image_col[i].T @ delta_col[i]
+            self.k_gradient += (np.dot(self.image_col[i].T, delta_col[i])
                                 ).reshape(self.k.shape)  # 9,8->3,3,1,8
 
         self.k_gradient /= bsize
@@ -132,7 +133,7 @@ class Conv(object):
             pad_delta_col = self.img2col(pad_delta[i],
                                          wk, self.stride)  # 784,72
             # 计算误差
-            delta_backward[i] = (pad_delta_col @ k_180_col
+            delta_backward[i] = (np.dot(pad_delta_col, k_180_col)
                                  ).reshape(wx, hx, ck)  # 28,28,1
 
         # 反向传播
@@ -193,15 +194,15 @@ class Dense(object):
     def forward(self, x):
         self.xshape = x.shape  # 3,13,13,8
         self.x = x.reshape(self.xshape[0], -1)  # 3,1352
-        return self.x @ self.W + self.b  # 3,10
+        return np.dot(self.x, self.W) + self.b  # 3,10
 
     def backward(self, delta, lr):
         # delta: 3,10
         # 梯度计算
         bsize = self.x.shape[0]  # 3
-        self.W_gradient = self.x.T @ delta / bsize  # 1352,10
+        self.W_gradient = np.dot(self.x.T, delta) / bsize  # 1352,10
         self.b_gradient = np.sum(delta, axis=0) / bsize  # 10,
-        delta_backward = delta @ self.W.T  # 3,1352
+        delta_backward = np.dot(delta, self.W.T)  # 3,1352
         # 反向传播
         self.W -= self.W_gradient * lr
         self.b -= self.b_gradient * lr
@@ -299,25 +300,27 @@ def eval(test_images, test_labels, ksize=3, bsize=3):
 
 
 if __name__ == '__main__':
+    start = time.time()
     # 导入数据（image及label）
-    with gzip.open('mnist.pkl.gz', 'rb') as f:
+    with gzip.open('/Users/hep/Desktop/Py_Proj/CNNs/mnist.pkl.gz', 'rb') as f:
         training, validation, test = pickle.load(f, encoding='bytes')
 
     # 训练数据(total:50000)
-    tr = 49998
+    tr = 3000
     shuffle1 = np.random.permutation(tr)
     train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
     # 标签one-hot处理
     train_labels = onehot(training[1][:tr], tr)[shuffle1]
 
     # 测试数据(total:10000)
-    te = 100
+    te = 1000
     shuffle2 = np.random.permutation(te)
     test_images = test[0][:te].reshape(te, 28, 28, 1)[shuffle2]
     test_labels = test[1][:te][shuffle2]
 
     print("训练模型")
     train(train_images, train_labels)
+    print("训练用时", time.time() - start)
 
     print("测试模型")
     eval(test_images, test_labels)

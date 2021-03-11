@@ -146,7 +146,7 @@ class Softmax:
 
         # weights形状：1352*10，10为待识别输出的节点数
         # 计算带权输出total
-        total = input @ self.weights + self.biases
+        total = np.dot(input, self.weights) + self.biases
         self.last_total = total
 
         exp_total = np.exp(total)

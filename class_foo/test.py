@@ -8,6 +8,7 @@ class test:
     def pr(self, ):
         print(self.j)
 
-
 test = test(2)
+
 print(test.N)
+

@@ -20,7 +20,7 @@ for pixel_r, pixel_g, pixel_b in zip(r.getdata(), g.getdata(), b.getdata()):
 
     # 转为 HSV 色值
     h, s, v = colorsys.rgb_to_hsv(pixel_r / 255., pixel_b / 255., pixel_g / 255.)
-    
+
     # 转回 RGB 色系
     rgb = colorsys.hsv_to_rgb(h, s, v)
     pixel_r, pixel_g, pixel_b = [int(x * 255.) for x in rgb]

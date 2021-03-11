@@ -1,5 +1,5 @@
 import requests
-import re
+# import re
 from lxml import etree
 
 
@@ -37,6 +37,6 @@ if __name__ == '__main__':
     with open("formula.md", 'w') as f:
         for i, item in enumerate(items):
             print(item)
-            f.write("%d. $$\n    " % (i + 1) + item + "\n    $$\n\n")
+            f.write("%d. $$\n    " % (1) + item + "\n    $$\n\n")
             num += 1
     print("已写入%d条公式" % (num))

@@ -1,7 +1,9 @@
 import gzip
 import pickle
-import time
 import numpy as np
+import time
+from penalty_function_v2 import Penalty_func
+
 
 # 设置输出值位数：全部输出
 np.set_printoptions(threshold=np.inf)
@@ -97,9 +99,9 @@ class Conv(object):
         return fimgs  # 3,26,26,8
 
     def backward(self, delta, lr):
-        bsize, wx, hx, cx = self.x.shape  # 3,28,28,1
-        wk, hk, ck, nk = self.k.shape  # 3,3,1,8
-        bd, wd, hd, cd = delta.shape  # 池化层输出的梯度:3,26,26,8
+        bsize, wx, hx, _ = self.x.shape  # 3,28,28,1
+        wk, hk, ck, _ = self.k.shape  # 3,3,1,8
+        bd, _, hd, cd = delta.shape  # 池化层输出的梯度:3,26,26,8
         # 计算卷积核(权重)和偏置的梯度
         delta_col = delta.reshape(bd, -1, cd)  # 3,676,8
 
@@ -136,11 +138,16 @@ class Conv(object):
             delta_backward[i] = (np.dot(pad_delta_col, k_180_col)
                                  ).reshape(wx, hx, ck)  # 28,28,1
 
-        # 反向传播
+        # 反向传播更新卷积核
         self.k -= self.k_gradient * lr
         self.b -= self.b_gradient * lr
 
         return delta_backward
+
+    def penalty(self, lambd):
+        # 利用罚函数更新卷积核k
+        p_func = Penalty_func(self.x, self.k)
+        p_func.update_kernel(lambd)
 
 
 # pool
@@ -235,12 +242,13 @@ class Softmax(object):
         return self.softmax  # 3,10
 
 
-def train(train_images, train_labels, ksize=3, bsize=3, lr=.005, epochs=3):
+def train(train_images, train_labels, ksize=3,
+          bsize=3, lr=.005, epochs=3, knum=8):
     # 训练
-    conv = Conv(kshape=(ksize, ksize, 1, 8))  # 26x26x8
+    conv = Conv(kshape=(ksize, ksize, 1, knum))  # 26x26x8
     pool = Pool()                         # 13x13x8
     psize = (28 - ksize + 1) // 2
-    dense = Dense(psize ** 2 * 8, 10)
+    dense = Dense(psize ** 2 * knum, 10)
     softmax = Softmax()
 
     for epoch in range(epochs):
@@ -258,22 +266,30 @@ def train(train_images, train_labels, ksize=3, bsize=3, lr=.005, epochs=3):
             delta = dense.backward(delta, lr)
             delta = pool.backward(delta)
             conv.backward(delta, lr)
+            if i < 10:
+                lambd = 1e-5
+            elif i < 20:
+                lambd = 1e-4
+            else:
+                lambd = 1e-3
+            conv.penalty(lambd)
 
             print("Epoch-{}-{:05d}".format(str(epoch + 1), i + bsize),
                   ":", "loss:{:.4f}".format(loss))
-        lr *= .95**(epoch + 1)
+        lr *= .95 ** (epoch + 1)
         # 存储模型训练的权重信息，方便测试模型时调用
-        np.savez("params.npz", k=conv.k, b=conv.b, W=dense.W, nb=dense.b)
+        np.savez("params_p_func.npz",
+                 k=conv.k, b=conv.b, W=dense.W, nb=dense.b)
 
 
-def eval(test_images, test_labels, ksize=3, bsize=3):
+def eval(test_images, test_labels, ksize=3, bsize=3, knum=8):
     # 加载权重信息
-    r = np.load("params.npz")
+    r = np.load("params_p_func.npz")
 
-    conv = Conv(kshape=(ksize, ksize, 1, 8))  # 26x26x8
+    conv = Conv(kshape=(ksize, ksize, 1, knum))  # 26x26x8
     pool = Pool()  # 13x13x8
     psize = (28 - ksize + 1) // 2
-    dense = Dense(psize ** 2 * 8, 10)
+    dense = Dense(psize ** 2 * knum, 10)
     softmax = Softmax()
 
     conv.k = r["k"]
@@ -306,21 +322,23 @@ if __name__ == '__main__':
         training, validation, test = pickle.load(f, encoding='bytes')
 
     # 训练数据(total:50000)
-    tr = 3000
+    tr = 30000
     shuffle1 = np.random.permutation(tr)
     train_images = training[0][:tr].reshape(tr, 28, 28, 1)[shuffle1]
     # 标签one-hot处理
     train_labels = onehot(training[1][:tr], tr)[shuffle1]
 
     # 测试数据(total:10000)
-    te = 1000
+    te = 10000
     shuffle2 = np.random.permutation(te)
     test_images = test[0][:te].reshape(te, 28, 28, 1)[shuffle2]
     test_labels = test[1][:te][shuffle2]
 
     print("训练模型")
     train(train_images, train_labels)
-    print("训练用时", time.time() - start)
+    end = time.time()
+
+    print("训练用时：", end - start)
 
     print("测试模型")
     eval(test_images, test_labels)

@@ -94,8 +94,8 @@ class Penalty_func(object):
         M = self.generateM(self.k)
 
         # 计算矩阵M奇异值的最值
-        # print("min:", np.min(svd(M, compute_uv=False)),
-        #       "max:", np.max(svd(M, compute_uv=False)))
+        print("min:", np.min(svd(M, compute_uv=False)),
+              "max:", np.max(svd(M, compute_uv=False)))
 
         # 计算罚函数矩阵M'M-αI:(gN^2,gN^2)
         pmat = np.dot(M.T, M) - self.alpha * self.eye

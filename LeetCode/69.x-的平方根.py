@@ -7,14 +7,6 @@
 # @lc code=start
 class Solution:
     def mySqrt(self, x: int) -> int:
-        if x==0:
-            return 0
-        elif x==1:
-            return 1
-        else:
-            for i in range(x//2+1):
-                if i**2<=x and (i+1)**2>x:
-                    break
-            return i
+        return int(x**.5)
 # @lc code=end
 

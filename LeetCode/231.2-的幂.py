@@ -7,9 +7,8 @@
 # @lc code=start
 class Solution:
     def isPowerOfTwo(self, n: int) -> bool:
-        while n != 0:
-            n=n%2
-        return False
+        # python内置的二进制转换函数,这里应用到了二进制数的性质
+        return bin(n).count('1') == 1 if n>0 else False
             
         
 # @lc code=end

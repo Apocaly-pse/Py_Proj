@@ -7,20 +7,17 @@
 # @lc code=start
 class Solution:
     def longestCommonPrefix(self, strs: List[str]) -> str:
-        l = min([len(i) for i in strs])
-        n = len(strs)
+        # 本题技巧:python自带的zip解包函数
         ret = ''
-        for i in range(n-1):
-            for j in range(l):
-                if strs[i][j] != strs[i+1][j]:
-                    break
-                else:
-                    ret += strs[i][j]
-                    for k in range(len(ret)):
-                        if ret[k] != strs[i+1][k]:
-                            break                            
-                        
+        for letter in zip(*strs):
+            if len(set(letter)) == 1:
+                # 如果每一个字母的开头作为一个集合仅有一个元素,说明其首字母是相同的
+                ret+=letter[0]
+            else:
+                # 如果不存在,则直接跳出循环,不再进行检索
+                break
         return ret
+
                     
 # @lc code=end
 

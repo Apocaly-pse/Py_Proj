@@ -12,14 +12,13 @@ class Solution:
             return nums.index(target)
         else:
             # 若不存在target
-            if nums[0] >target:
+            if nums[0] > target:
                 # 头尾需要另外考虑
                 return 0
-            elif nums[len(nums)-1] <target:
+            elif nums[len(nums) - 1] < target:
                 return len(nums)
             else:
                 for i in range(len(nums)):
-                    if nums[i-1]<target and nums[i]>target:
+                    if nums[i - 1] < target and nums[i] > target:
                         return i
 # @lc code=end
-

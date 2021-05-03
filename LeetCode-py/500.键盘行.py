@@ -10,13 +10,12 @@ class Solution:
         s1, s2, s3 = "qwertyuiop", "asdfghjkl", "zxcvbnm"
         ret = []
         for word in words:
-            if set(word) in set(s1+s1.upper()):
+            if set(word) in set(s1 + s1.upper()):
                 ret.append(word)
-            elif set(word) in set(s2+s2.upper()):
+            elif set(word) in set(s2 + s2.upper()):
                 ret.append(word)
-            elif set(word) in set(s3+s3.upper()):
+            elif set(word) in set(s3 + s3.upper()):
                 ret.append(word)
         return ret
 
 # @lc code=end
-

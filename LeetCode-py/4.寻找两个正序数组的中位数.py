@@ -10,10 +10,9 @@ class Solution:
         nums3 = nums1 + nums2
         nums3.sort()
         n = len(nums3)
-        if n%2==0:
+        if n % 2 == 0:
             # 偶数
-            return (nums3[n//2-1]+nums3[n//2])/2
+            return (nums3[n // 2 - 1] + nums3[n // 2]) / 2
         else:
-            return nums3[n//2]
+            return nums3[n // 2]
 # @lc code=end
-

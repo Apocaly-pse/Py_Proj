@@ -12,12 +12,9 @@ class Solution:
         for letter in zip(*strs):
             if len(set(letter)) == 1:
                 # 如果每一个字母的开头作为一个集合仅有一个元素,说明其首字母是相同的
-                ret+=letter[0]
+                ret += letter[0]
             else:
                 # 如果不存在,则直接跳出循环,不再进行检索
                 break
         return ret
-
-                    
 # @lc code=end
-

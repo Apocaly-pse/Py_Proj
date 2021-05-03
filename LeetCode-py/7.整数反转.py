@@ -11,7 +11,6 @@ class Solution:
             tmp = int('-' + str(x)[::-1][:-1])
         else:
             tmp = int(str(x)[::-1])
-        return tmp if tmp >= -2<<30 and tmp <= (2<<30)-1 else 0        
+        return tmp if tmp >= -2 << 30 and tmp <= (2 << 30) - 1 else 0
 
 # @lc code=end
-

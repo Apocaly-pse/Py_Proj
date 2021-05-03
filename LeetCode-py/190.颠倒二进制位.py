@@ -9,4 +9,3 @@ class Solution:
     def reverseBits(self, n: int) -> int:
         return int(str(n)[::-1])
 # @lc code=end
-

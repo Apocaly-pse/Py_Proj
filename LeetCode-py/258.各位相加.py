@@ -11,6 +11,5 @@ class Solution:
         #     return 0
         # else:
         #     return num%9 if num%9!=0 else 9
-        return (num-1)%9+1 if num!=0 else 0
+        return (num - 1) % 9 + 1 if num != 0 else 0
 # @lc code=end
-

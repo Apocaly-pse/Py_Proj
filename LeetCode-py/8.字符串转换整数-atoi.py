@@ -12,7 +12,6 @@ class Solution:
         # for i in range(len(s)):
         if s.find('-'):
             isNegative = True
-        
+
 
 # @lc code=end
-
